@@ -73,8 +73,9 @@ void setup() {
   
   WiFiManager wifi_manager;
 
-
+#ifdef WEERMETEN_RESET_CONFIG
   wifi_manager.resetSettings();
+#endif
   wifi_manager.setTimeout(300);
 
   String ap = "WeerstationBasis-" + String(ESP.getChipId());
