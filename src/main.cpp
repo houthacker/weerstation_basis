@@ -12,6 +12,7 @@
 #include <TZ.h>
 
 #include <Config.h>
+#include <Logger.h>
 #include <MqttClient.h>
 
 Adafruit_BME280 bme;
@@ -30,45 +31,45 @@ void init_clock()
 {
   WMConfigTime();
 
-  Serial.println("Waiting for first NTP time synchronization... ");
+  LogInfo(F("Waiting for first NTP time synchronization... "));
   last_update = time(nullptr);
   while (last_update < 8 * 3600 * 2) {
       delay(250);
-      Serial.print(".");
+      Log(F("."));
       last_update = time(nullptr);
   }
-  Serial.println("Done.");
+  LogInfo(F("NTP syncronization succeeded."));
 }
 
 void update_clock()
 {
   auto now = time(nullptr);
   if (std::difftime(now, last_update) >= WM_NTP_UPDATE_FREQUENCY_SECONDS) {
-    Serial.print("Synchronizing NTP time... ");
+    LogInfo(F("Synchronizing NTP time... "));
     WMConfigTime();
-    Serial.println("Done.");
+    LogInfo(F("NTP synchronization succeeded."));
   }
 }
 
 void setup() {
   Serial.begin(115200);
-  Serial.println(F("**** Initializing Weerstation Basis ****"));
+  LogInfo(F("**** Initializing Weerstation Basis ****"));
 
   // Detect and configure hardware
-  Serial.println(F("Initializing BME280 sensor..."));
+  LogInfo(F("Initializing BME280 sensor..."));
   Wire.begin(D2, D1);
   if (!bme.begin(0x76)) {
-    Serial.println(F("Could not find a valid BME280 sensor at address 0x76, check wiring!"));
+    LogError(F("Could not find a valid BME280 sensor at address 0x76, check wiring!"));
     while (1) delay(10);
   } else {
-    Serial.println(F("Done. Found BME280 at address 0x76. Sensor details:"));
+    LogInfo(F("Found BME280 at address 0x76. Sensor details:"));
     bme_temperature->printSensorDetails();
     bme_pressure->printSensorDetails();
     bme_humidity->printSensorDetails();
   }
 
   // Configure wifi manager
-  Serial.println("Initializing WiFi...");
+  LogInfo(F("Initializing WiFi..."));
   WiFi.mode(WiFiMode::WIFI_STA);
   
   WiFiManager wifi_manager;
@@ -80,13 +81,13 @@ void setup() {
 
   String ap = "WeerstationBasis-" + String(ESP.getChipId());
   if (!wifi_manager.autoConnect(ap.c_str(), "WeerstationBasis")) {
-    Serial.println(F("Could not connect to WiFi within five minutes, rebooting."));
+    LogError(F("Could not connect to WiFi within five minutes, rebooting."));
     delay(1000);
 
     // Try again.
     ESP.reset();
   } else {
-    Serial.println(F("Done. WiFi connected."));
+    LogInfo(F("WiFi connected."));
   }
 
   // When we have a WiFi connection, set the clock using NTP.
@@ -97,7 +98,22 @@ void setup() {
   trust_anchors.append(LE_R3_CERT);
   wifi_client.setTrustAnchors(&trust_anchors);
 
-  Serial.println("**** Weerstation Basis initialized ****");
+  LogDebug(F("Configuring MQTT"));
+  if (mqtt.Connect()) {
+    if (mqtt.Subscribe(WM_STATUS_TOPIC)) {
+      LogDebug(F("MQTT configuration succeeded."));
+    } else {
+      LogError(F("MQTT connected, but topic subscriptions failed; rebooting."));
+      delay(1000);
+      ESP.reset();
+    }
+  } else {
+    LogError(F("Could not connect to MQTT, rebooting."));
+    delay(1000);
+    ESP.reset();
+  }
+
+  LogInfo(F("**** Weerstation Basis initialized ****"));
 }
 
 void loop() {
@@ -119,7 +135,7 @@ void loop() {
   Serial.println(" hPa");
   Serial.println();
 
-  // Synchronizes with NTP every WM_NTP_UPDATE_FREQUENCY_SECONDS
+  // Synchronizes with NTP every WM_NTP_SYNC_FREQUENCY_SECONDS
   update_clock();
   mqtt.Loop();
 
