@@ -15,7 +15,7 @@ static const char* levels[5] = {
 void wm_log(const char* file, int32_t line, LogLevel level, const __FlashStringHelper* msg) {
     Serial.print(F("["));
     Serial.print(levels[static_cast<uint32_t>(level)]);
-    Serial.print(F("]"));
+    Serial.print(F("] "));
     Serial.print(file);
     Serial.print(F(":"));
     Serial.print(line);
@@ -26,7 +26,7 @@ void wm_log(const char* file, int32_t line, LogLevel level, const __FlashStringH
 void wm_log(const char* file, int32_t line, LogLevel level, const char* msg) {
     Serial.print(F("["));
     Serial.print(levels[static_cast<uint32_t>(level)]);
-    Serial.print(F("]"));
+    Serial.print(F("] "));
     Serial.print(file);
     Serial.print(F(":"));
     Serial.print(line);

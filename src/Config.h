@@ -1,6 +1,16 @@
 #ifndef WEERMETEN_CONFIG_H
 #define WEERMETEN_CONFIG_H
 
+#ifdef WEERMETEN_DEBUG_ALL
+#ifndef WEERMETEN_DEBUG
+#define WEERMETEN_DEBUG
+#endif
+#define CORE_DEBUG_LEVEL 5
+#define DEBUG_ESP_CORE 1
+#define DEBUG_ESP_HTTP_UPDATE 1
+#define DEBUG_ESP_PORT Serial
+#endif
+
 // Some required defines are added using compiler options
 #ifndef WM_CHIP_ID
 #error "Required compiler option WM_CHIP_ID is not defined. Add it to build_flags in platformio.ini or use -DWM_CHIP_ID directly."
@@ -52,15 +62,20 @@ nLRbwHOoq7hHwg==
 )EOF";
 
 // Synchronize with NTP every x seconds.
-#define WM_NTP_UPDATE_FREQUENCY_SECONDS 3600
+#define WM_NTP_UPDATE_FREQUENCY_SECONDS 3600 * 24
 #define WMConfigTime() configTime(TZ_Europe_Amsterdam, "pool.ntp.org", "time.nist.gov")
 
-// Generic sensor topics.
+// Generic sensor configuration.
+#ifdef WEERMETEN_DEBUG
+#define WM_UPDATE_INTERVAL_SECS 10
+#else
+#define WM_UPDATE_INTERVAL_SECS 300
+#endif
 #define WM_STATUS_TOPIC "weermeten/status"
 #define WM_SENSOR_STATE_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "/state"
 #define WM_SENSOR_AVAIL_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "/availability"
 
-// BME280 sensor base topics.
+// BME280 sensor topics.
 #define WM_BME280_H_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "_humidity"
 #define WM_BME280_T_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "_temperature"
 #define WM_BME280_P_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "_pressure"

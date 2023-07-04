@@ -2,7 +2,6 @@
 #include <Arduino.h>
 #include <cmath>
 #include <cstdio>
-#include <cstring>
 #include <Wire.h>
 
 #include <Logger.h>
@@ -27,7 +26,16 @@ static const char ANNOUNCE_TEMPLATE[] = R"EOF({
     "sw_version": "%s"
   }
 })EOF";
+
+static const auto STATE_BUF_SIZE = 100;
+static const char STATE_TEMPLATE[] = R"EOF({
+    "temperature": %.1f,
+    "humidity": %.1f,
+    "pressure": %.1f
+})EOF";
+
 static char ANNOUNCE_BUF[ANNOUNCE_BUF_SIZE];
+static char STATE_BUF[STATE_BUF_SIZE];
 
 static char* make_announce(const SensorMeta& sensor)
 {
@@ -49,7 +57,15 @@ static char* make_announce(const SensorMeta& sensor)
     return ANNOUNCE_BUF;
 }
 
-BME280::BME280(weermeten::MqttClient& mqtt) : mqtt(mqtt) 
+static char* make_state(const sensors_event_t& temp_event, const sensors_event_t& hum_event, const sensors_event_t& pressure_event)
+{
+    std::memset(STATE_BUF, 0, STATE_BUF_SIZE);
+    std::sprintf(STATE_BUF, STATE_TEMPLATE, temp_event.temperature, hum_event.relative_humidity, pressure_event.pressure);
+
+    return STATE_BUF;
+}
+
+BME280::BME280(weermeten::MqttClient& mqtt, uint32_t send_interval_seconds) : mqtt(mqtt), send_interval_seconds(send_interval_seconds), last_send_millis(0)
 {
     this->temperature_meta = {
         .device_class = "temperature",
@@ -86,15 +102,15 @@ void BME280::Announce()
     // Announce temperature
     auto payload = make_announce(this->temperature_meta);
     if (this->mqtt.Publish(this->temperature_meta.discovery_topic, payload, std::strlen(payload))) {
-        LogDebug("Discovery of BME280/temperature sent.");
+        LogDebug("Announced BME280/temperature sensor.");
     } else {
-        LogWarning("Discovery of BME280/temperature failed.");
+        LogWarning("Announcing BME280/temperature failed.");
     }
 
     // Announce humidity
     payload = make_announce(this->humidity_meta);
     if (this->mqtt.Publish(this->humidity_meta.discovery_topic, payload, std::strlen(payload))) {
-        LogDebug("Discovery of BME280/humidity sent.");
+        LogDebug("Announced BME280/humidity sensor.");
     } else {
         LogWarning("Discovery of BME280/humidity failed.");
     }
@@ -102,7 +118,7 @@ void BME280::Announce()
     // Announce pressure
     payload = make_announce(this->pressure_meta);
     if (this->mqtt.Publish(this->pressure_meta.discovery_topic, payload, std::strlen(payload))) {
-        LogDebug("Discovery of BME280/pressure sent.");
+        LogDebug("Announced BME280/pressure sensor.");
     } else {
         LogWarning("Discovery of BME280/pressure failed.");
     }
@@ -117,22 +133,20 @@ void BME280::PrintDetails()
 
 void BME280::Loop()
 {
-    sensors_event_t humidity_event, temperature_event, pressure_event;
-    this->bme.getHumiditySensor()->getEvent(&humidity_event);
-    this->bme.getTemperatureSensor()->getEvent(&temperature_event);
-    this->bme.getPressureSensor()->getEvent(&pressure_event);
-
-    Log(F("Humidity = "));
-    Log(humidity_event.relative_humidity);
-    Logln(" %");
-
-    Log(F("Temperature = "));
-    Log(temperature_event.temperature);
-    Logln(" *C");
-
-    Log(F("Pressure = "));
-    Log(pressure_event.pressure);
-    Logln(" hPa");
-    Logln();
+    auto uptime = millis();
+    auto diff_millis = uptime - this->last_send_millis;
+    if (diff_millis >= this->send_interval_seconds * 1000) {
+        LogDebug("Reached BME280::send_interval_seconds; publishing sensor states.");
+        sensors_event_t humidity_event, temperature_event, pressure_event;
+        this->bme.getHumiditySensor()->getEvent(&humidity_event);
+        this->bme.getTemperatureSensor()->getEvent(&temperature_event);
+        this->bme.getPressureSensor()->getEvent(&pressure_event);
+        auto message = make_state(temperature_event, humidity_event, pressure_event);
+        if (!this->mqtt.Publish(WM_SENSOR_STATE_TOPIC, message)) {
+            LogWarning("Could not send current state to MQTT.");
+        } else {
+            this->last_send_millis = uptime;
+        }
+    }
 }
 }

@@ -5,6 +5,7 @@
 #include <MqttClient.h>
 
 #include <cstdint>
+#include <ctime>
 
 namespace weermeten {
 
@@ -24,9 +25,12 @@ class BME280 {
         SensorMeta temperature_meta;
         SensorMeta pressure_meta;
         SensorMeta humidity_meta;
+
+        uint32_t send_interval_seconds;
+        uint64_t last_send_millis;
         
     public:
-        BME280(weermeten::MqttClient& mqtt);
+        BME280(weermeten::MqttClient& mqtt, uint32_t send_interval_seconds);
         ~BME280() =default;
 
         /**
@@ -55,4 +59,4 @@ class BME280 {
 
 }
 
-#endif // WEERMETEN_BME280_h
+#endif // WEERMETEN_BME280_H

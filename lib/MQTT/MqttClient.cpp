@@ -19,7 +19,8 @@ MqttClient::MqttClient(PubSubClient& client, const LastWillTestament lwt) : clie
         };
     this->client.setCallback(callback);
     this->client.setBufferSize(1024);
-    this->client.setKeepAlive(30);
+    this->client.setKeepAlive(15);
+    this->client.setSocketTimeout(30);
 }
 
 MqttClient::~MqttClient()
