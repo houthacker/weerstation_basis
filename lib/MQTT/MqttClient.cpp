@@ -9,7 +9,7 @@
 #include "../../src/WeermetenSecrets.h"
 namespace weermeten {
 
-MqttClient::MqttClient(PubSubClient& client) : client(client)
+MqttClient::MqttClient(PubSubClient& client, const LastWillTestament lwt) : client(client), lwt(lwt)
 {
     this->client.setServer(WM_MQTT_BROKER, WM_MQTT_PORT);
 
@@ -18,6 +18,8 @@ MqttClient::MqttClient(PubSubClient& client) : client(client)
             this->OnMessage(topic, payload, length);
         };
     this->client.setCallback(callback);
+    this->client.setBufferSize(1024);
+    this->client.setKeepAlive(30);
 }
 
 MqttClient::~MqttClient()
@@ -30,12 +32,16 @@ MqttClient::~MqttClient()
     }
 }
 
-bool MqttClient::Connect() {
+bool MqttClient::Connect() 
+{
     for (int i = 0; !this->client.connected() && i < 5; i++) {
         LogInfo(F("Connecting to MQTT broker "));
-        if (this->client.connect("", WM_MQTT_USER, WM_MQTT_PASSWORD)) {
+        if (this->client.connect("", WM_MQTT_USER, WM_MQTT_PASSWORD, this->lwt.topic, 
+            static_cast<uint8_t>(this->lwt.qos), this->lwt.retain, this->lwt.message)) 
+        {
             LogInfo("MQTT connection successful.");
 
+            this->Publish(WM_SENSOR_AVAIL_TOPIC, "online");
             this->client.subscribe(WM_STATUS_TOPIC);
             return true;
         } else {
@@ -80,6 +86,28 @@ bool MqttClient::Unsubscribe(const char* topic)
     return false;
 }
 
+bool MqttClient::Publish(const char* topic, const char* payload)
+{
+    return this->Publish(topic, payload, std::strlen(payload));
+}
+
+bool MqttClient::Publish(const char* topic, const char* payload, uint32_t length)
+{
+    if (!this->client.connected() && !this->Connect()) {
+        return false;
+    }
+
+    Log("MqttClient::Publish - Going to send message of ");
+    Log(length);
+    Log(" bytes to [");
+    Log(topic);
+    Log("], message = [");
+    Log(payload);
+    Logln("]");
+
+    return this->client.publish(topic, payload, length);
+}
+
 void MqttClient::Loop()
 {
     if (!this->client.connected()) {
@@ -89,7 +117,7 @@ void MqttClient::Loop()
     this->client.loop();
 }
 
-void MqttClient::OnMessage(char* topic, uint8_t* payload, unsigned int length)
+void MqttClient::OnMessage(char* topic, uint8_t* payload, uint32_t length)
 {
     Log("Message received from topic '");
     Log(topic);

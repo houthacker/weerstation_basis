@@ -1,4 +1,3 @@
-#include <Adafruit_BME280.h>
 #include <Arduino.h>
 #include <DNSServer.h>
 #include <ESP8266WiFi.h>
@@ -14,17 +13,19 @@
 #include <Config.h>
 #include <Logger.h>
 #include <MqttClient.h>
-
-Adafruit_BME280 bme;
-Adafruit_Sensor *bme_humidity = bme.getHumiditySensor();
-Adafruit_Sensor *bme_temperature = bme.getTemperatureSensor();
-Adafruit_Sensor *bme_pressure = bme.getPressureSensor();
+#include <BME280.h>
 
 WiFiClientSecure wifi_client;
 X509List trust_anchors;
 
 PubSubClient mqtt_client(wifi_client);
-weermeten::MqttClient mqtt(mqtt_client);
+weermeten::MqttClient mqtt(mqtt_client, weermeten::LastWillTestament{
+  .topic = WM_SENSOR_AVAIL_TOPIC, 
+  .message = "offline",
+  .qos = weermeten::MqttQoS::at_least_once
+});
+
+weermeten::BME280 bme_sensor(mqtt);
 
 time_t last_update = 0;
 void init_clock() 
@@ -57,15 +58,12 @@ void setup() {
 
   // Detect and configure hardware
   LogInfo(F("Initializing BME280 sensor..."));
-  Wire.begin(D2, D1);
-  if (!bme.begin(0x76)) {
+  if (!bme_sensor.Begin(D2, D1, WM_BME280_I2C_ADDRESS)) {
     LogError(F("Could not find a valid BME280 sensor at address 0x76, check wiring!"));
     while (1) delay(10);
   } else {
     LogInfo(F("Found BME280 at address 0x76. Sensor details:"));
-    bme_temperature->printSensorDetails();
-    bme_pressure->printSensorDetails();
-    bme_humidity->printSensorDetails();
+    bme_sensor.PrintDetails();
   }
 
   // Configure wifi manager
@@ -113,30 +111,22 @@ void setup() {
     ESP.reset();
   }
 
+  // Now that we have setup TLS over WiFi, we can use the MQTT connection to
+  // announce the sensors.
+  bme_sensor.Announce();
+
   LogInfo(F("**** Weerstation Basis initialized ****"));
 }
 
 void loop() {
-  sensors_event_t humidity_event, temperature_event, pressure_event;
-  bme_humidity->getEvent(&humidity_event);
-  bme_temperature->getEvent(&temperature_event);
-  bme_pressure->getEvent(&pressure_event);
-
-  Serial.print(F("Humidity = "));
-  Serial.print(humidity_event.relative_humidity);
-  Serial.println(" %");
-
-  Serial.print(F("Temperature = "));
-  Serial.print(temperature_event.temperature);
-  Serial.println(" *C");
-
-  Serial.print(F("Pressure = "));
-  Serial.print(pressure_event.pressure);
-  Serial.println(" hPa");
-  Serial.println();
+  
+  // Retrieve h/t/p values and report them.
+  bme_sensor.Loop();
 
   // Synchronizes with NTP every WM_NTP_SYNC_FREQUENCY_SECONDS
   update_clock();
+
+  // And check for new messages.
   mqtt.Loop();
 
   delay(10000);

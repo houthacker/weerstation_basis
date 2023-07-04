@@ -1,5 +1,23 @@
+#ifndef WEERMETEN_CONFIG_H
+#define WEERMETEN_CONFIG_H
+
+// Some required defines are added using compiler options
+#ifndef WM_CHIP_ID
+#error "Required compiler option WM_CHIP_ID is not defined. Add it to build_flags in platformio.ini or use -DWM_CHIP_ID directly."
+#endif
+#ifndef WM_VERSION
+#error "Required compiler option WM_VERSION is not defined. Add it to build_flags in platformio.ini or use -DWM_VERSION directy."
+#endif
+
+#define STRINGIFY_(s) #s
+#define STRINGIFY(s) STRINGIFY_(s)
+
+// MQTT broker configuration
 #define WM_MQTT_BROKER "mqtt.weermeten.nl"
 #define WM_MQTT_PORT 8883
+
+// Let's Encrypt intermediate certificate. This is used as trust anchor when
+// setting up an encrypted connection to the MQTT broker.
 const char LE_R3_CERT[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIFFjCCAv6gAwIBAgIRAJErCErPDBinU/bWLiWnX1owDQYJKoZIhvcNAQELBQAw
@@ -33,7 +51,21 @@ nLRbwHOoq7hHwg==
 -----END CERTIFICATE-----
 )EOF";
 
-#define WM_STATUS_TOPIC "weermeten/status"
-
+// Synchronize with NTP every x seconds.
 #define WM_NTP_UPDATE_FREQUENCY_SECONDS 3600
 #define WMConfigTime() configTime(TZ_Europe_Amsterdam, "pool.ntp.org", "time.nist.gov")
+
+// Generic sensor topics.
+#define WM_STATUS_TOPIC "weermeten/status"
+#define WM_SENSOR_STATE_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "/state"
+#define WM_SENSOR_AVAIL_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "/availability"
+
+// BME280 sensor base topics.
+#define WM_BME280_H_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "_humidity"
+#define WM_BME280_T_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "_temperature"
+#define WM_BME280_P_TOPIC "weermeten/sensor/wm_" STRINGIFY(WM_CHIP_ID) "_pressure"
+
+// The address of the I2C bus to communicate with the BME280 sensor.
+#define WM_BME280_I2C_ADDRESS 0x76
+
+#endif // WEERMETEN_CONFIG_H

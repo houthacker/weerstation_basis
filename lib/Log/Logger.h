@@ -1,3 +1,6 @@
+#ifndef WEERMETEN_LOGGER_H
+#define WEERMETEN_LOGGER_H
+
 #include <Arduino.h>
 #include <cstdint>
 
@@ -29,3 +32,5 @@ void wm_log(const char* file, int32_t line, LogLevel level, const __FlashStringH
 void wm_log(const char* file, int32_t line, LogLevel level, const char* msg);
 
 }
+
+#endif // WEERMETEN_LOGGER_H

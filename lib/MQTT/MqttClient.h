@@ -1,3 +1,6 @@
+#ifndef WEERMETEN_MQTT_CLIENT_H
+#define WEERMETEN_MQTT_CLIENT_H
+
 #include <PubSubClient.h>
 
 #include <cstdint>
@@ -5,10 +8,17 @@
 
 namespace weermeten {
 
-enum class MqttQoS{
+enum class MqttQoS {
     at_most_once = 0,
     at_least_once = 1,
-    /* exactly_once = 2, */
+    exactly_once = 2,
+};
+
+struct LastWillTestament {
+    const char* topic = nullptr;
+    const char* message = nullptr;
+    const MqttQoS qos = MqttQoS::at_most_once;
+    const bool retain = false;
 };
 
 class MqttClient {
@@ -17,8 +27,10 @@ class MqttClient {
 
         std::unordered_set<const char*> auto_unsubscribe;
 
+        const LastWillTestament lwt;
+
     public:
-        MqttClient(PubSubClient& client);
+        MqttClient(PubSubClient& client, const LastWillTestament lwt = {});
         ~MqttClient();
 
         /**
@@ -45,6 +57,26 @@ class MqttClient {
         bool Unsubscribe(const char* topic);
 
         /**
+         * @brief Publishes the given message.
+         * @details This is a shorthand for <code>MqttClient::Publish(topic, payload, strlen(payload))</code>
+         * @param topic The topic to send the message to.
+         * @param payload The payload to send.
+         * 
+         * @returns Whether publishing the message succeeded. 
+         */
+        bool Publish(const char* topic, const char* payload);
+
+        /**
+         * @brief Publishes the given message.
+         * @param topic The topic to send the message to.
+         * @param payload The payload to send.
+         * @param length The payload size in bytes.
+         * 
+         * @returns Whether publishing the message succeeded. 
+         */
+        bool Publish(const char* topic, const char* payload, uint32_t length);
+
+        /**
          * @brief Checks for new messages and reconnects if necessary.
          * @details If new messages have arrived, @c MqttClient::OnMessage() is called for each message.
          */
@@ -53,7 +85,9 @@ class MqttClient {
         /**
          * @brief Callback which is called when a new message has arrived. 
          */
-        void OnMessage(char* topic, uint8_t* payload, unsigned int length);
+        void OnMessage(char* topic, uint8_t* payload, uint32_t length);
 };
 
 }
+
+#endif // WEERMETEN_MQTT_CLIENT_H
