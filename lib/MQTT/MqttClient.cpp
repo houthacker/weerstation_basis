@@ -41,14 +41,11 @@ bool MqttClient::Connect()
             static_cast<uint8_t>(this->lwt.qos), this->lwt.retain, this->lwt.message)) 
         {
             LogInfo("MQTT connection successful.");
-
             this->Publish(WM_SENSOR_AVAIL_TOPIC, "online");
             this->client.subscribe(WM_STATUS_TOPIC);
             return true;
         } else {
-            LogError("MQTT connection failed. State:");
-            Log(this->client.state());
-            Logln(". Will retry in 5 seconds.");
+            LogError("MQTT connection failed. State == %d. Will retry in 5 seconds.", this->client.state());
             delay(5000);
         }
     }
@@ -98,13 +95,7 @@ bool MqttClient::Publish(const char* topic, const char* payload, uint32_t length
         return false;
     }
 
-    Log("MqttClient::Publish - Going to send message of ");
-    Log(length);
-    Log(" bytes to [");
-    Log(topic);
-    Log("], message = [");
-    Log(payload);
-    Logln("]");
+    LogDebug("MqttClient::Publish - Going to send message of %d bytes to topic '%s', message = [%s]", length, topic, payload);
 
     return this->client.publish(topic, payload, length);
 }
@@ -120,13 +111,8 @@ void MqttClient::Loop()
 
 void MqttClient::OnMessage(char* topic, uint8_t* payload, uint32_t length)
 {
-    Log("Message received from topic '");
-    Log(topic);
-    Log("' with payload: '");
-    for (unsigned int i = 0; i < length; i++) {
-        Log((char)payload[i]);
-    }
-    Logln("'");
+    char* message = reinterpret_cast<char*>(payload);
+    LogDebug("Message received from topic '%s' with payload '%s'", topic, message);
 }
 
 }

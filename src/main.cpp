@@ -8,12 +8,11 @@
 #include <SPI.h>
 #include <WiFiManager.h>
 #include <Wire.h>
-
 #include <cstdint>
-#include <ctime>
 #include <TZ.h>
 
 #include <Logger.h>
+#include <NTP.h>
 #include <MqttClient.h>
 #include <BME280.h>
 
@@ -28,33 +27,7 @@ weermeten::MqttClient mqtt(mqtt_client, weermeten::LastWillTestament{
 });
 
 weermeten::BME280 bme_sensor(mqtt, WM_UPDATE_INTERVAL_SECS);
-
-uint64_t last_ntp_update = 0;
-void init_clock() 
-{
-  WMConfigTime();
-
-  LogInfo(F("Waiting for first NTP time synchronization... "));
-  auto now = time(nullptr);
-  while (now < 8 * 3600 * 2) {
-      delay(250);
-      Log(F("."));
-      now = time(nullptr);
-  }
-  last_ntp_update = millis();
-  LogInfo(F("NTP syncronization succeeded."));
-}
-
-void update_clock()
-{
-  auto uptime = millis();
-  if (uptime - last_ntp_update >= WM_NTP_UPDATE_FREQUENCY_SECONDS) {
-    LogInfo(F("Synchronizing NTP time... "));
-    WMConfigTime();
-    last_ntp_update = uptime;
-    LogInfo(F("NTP synchronization succeeded."));
-  }
-}
+weermeten::NTP ntp("pool.ntp.org", "time.nist.gov");
 
 void setup() {
   Serial.begin(115200);
@@ -94,7 +67,7 @@ void setup() {
 
   // When we have a WiFi connection, set the clock using NTP.
   // This is required to validate TLS certificates later.
-  init_clock();
+  ntp.Begin(TZ_Europe_Amsterdam, std::chrono::duration_cast<std::chrono::system_clock::duration>(std::chrono::seconds(WM_NTP_UPDATE_FREQUENCY_SECONDS)));
 
   // Setup TLS trust anchor
   trust_anchors.append(LE_R3_CERT);
@@ -124,7 +97,7 @@ void setup() {
 
 void loop() {
   // Synchronizes with NTP every WM_NTP_SYNC_FREQUENCY_SECONDS
-  update_clock();
+  ntp.Loop();
 
   // Retrieve h/t/p values and report them.
   bme_sensor.Loop();

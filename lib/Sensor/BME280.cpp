@@ -7,6 +7,9 @@
 #include <Logger.h>
 #include "../../src/Config.h"
 
+#include <chrono>
+#include <ctime>
+
 namespace weermeten {
 
 static const auto ANNOUNCE_BUF_SIZE = 550;
