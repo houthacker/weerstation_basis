@@ -19,8 +19,7 @@
 WiFiClientSecure wifi_client;
 X509List trust_anchors;
 
-PubSubClient mqtt_client(wifi_client);
-weermeten::MqttClient mqtt(mqtt_client, weermeten::LastWillTestament{
+weermeten::MqttClient mqtt(PubSubClient(wifi_client), weermeten::LastWillTestament{
   .topic = WM_SENSOR_AVAIL_TOPIC, 
   .message = "offline",
   .qos = weermeten::MqttQoS::at_least_once

@@ -8,12 +8,43 @@
 
 namespace weermeten {
 
+/**
+ * @brief MQTT Quality of Service definitions. 
+ */
 enum class MqttQoS {
+
+    /**
+     * @brief Sends messages using a best-effort. The sender does not expect 
+     * acknowledgement of the message being received.
+     */
     at_most_once = 0,
+
+    /**
+     * @brief Sends messages ensuring at least one PUBACK has been received. If no PUBACK
+     * is received within a reasonable amount of time, the message is resubmitted.
+     */
     at_least_once = 1,
+
+    /**
+     * @brief Ensures that messages are delivered exactly once to each intended recipient. 
+     */
     exactly_once = 2,
 };
 
+/**
+ * @brief Last Will of the associated @c MqttClient connection.
+ * @details The Last Will Testament is a message that is sent to the configured topic by the MQTT broker
+ * if one of the following events occur:<br />
+ * <ul>
+ * <li>I/O error or network failure</li>
+ * <li>Failed communication within KeepAlive period</li>
+ * <li>The client closes the connection without DISCONNECT packet</li>
+ * <li>The broker closes the connection due to a protocol error</li>
+ * </ul>
+ * 
+ * @since 0.0.1
+ * @author houthacker
+ */
 struct LastWillTestament {
     const char* topic = nullptr;
     const char* message = nullptr;
@@ -23,14 +54,21 @@ struct LastWillTestament {
 
 class MqttClient {
     private:
-        PubSubClient& client;
+        PubSubClient client;
 
         std::unordered_set<const char*> auto_unsubscribe;
 
         const LastWillTestament lwt;
 
     public:
-        MqttClient(PubSubClient& client, const LastWillTestament lwt = {});
+
+        /**
+         * @brief Creates a new @c MqttClient.
+         * 
+         * @param client The @c PubSubClient to wrap.
+         * @param lwt The Last Will Testament. Defaults to no LWT.
+         */
+        MqttClient(PubSubClient&& client, const LastWillTestament lwt = {});
         ~MqttClient();
 
         /**

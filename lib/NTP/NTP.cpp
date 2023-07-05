@@ -20,12 +20,22 @@ static const char* get_tz_from_env(const char* or_else)
     return or_else;
 }
 
+static bool ntp_callback_running = false;
+
 NTP::NTP(const char* server1, const char* server2, const char* server3) 
 : server1(server1), server2(server2), server3(server3), time_is_set(false), last_time_sync(std::chrono::system_clock::time_point::min()) 
 {
     settimeofday_cb([=](bool is_set){
+        ntp_callback_running = true;
         this->TimeSetCallback(is_set);
+        ntp_callback_running = false;
     });
+}
+
+NTP::~NTP()
+{
+    // Prevent callback on destructed object.
+    settimeofday_cb((const BoolCB&)nullptr);
 }
 
 void NTP::Begin(const char* time_zone, const std::chrono::system_clock::duration sync_interval_seconds)
@@ -36,17 +46,7 @@ void NTP::Begin(const char* time_zone, const std::chrono::system_clock::duration
 
     LogDebug(F("Waiting for NTP synchronization."));
     while (!this->time_is_set) {
-        delay(100);
-    }
-
-    auto now = std::time(nullptr);
-    if (now < 8 * 3600 * 2) {
-        LogWarning("Time not set after NTP sync. Waiting..");
-        while (now < 8 * 3600 * 2) {
-            delay(25);
-            now = std::time(nullptr);
-        }
-        LogDebug("Time has been set after NTP sync. Done.");
+        delay(25);
     }
 }
 
@@ -54,7 +54,7 @@ void NTP::Loop()
 {
     auto now = std::chrono::system_clock::now();
     if (now - this->last_time_sync >= this->sync_interval_seconds) {
-        LogDebug(F("Retrieving time from NTP pool."));
+        LogDebug(F("Retrieving time from NTP pool servers."));
 
         // If NTP::Begin executed successfully, the time zone was set there. 
         configTime(get_tz_from_env(TZ_Etc_UTC), this->server1, this->server2, this->server3);
@@ -63,11 +63,13 @@ void NTP::Loop()
 
 void NTP::TimeSetCallback(bool is_set)
 {
-    this->last_time_sync = std::chrono::system_clock::now();
-    const std::time_t t = std::time(nullptr);
+    if (ntp_callback_running) {
+        this->last_time_sync = std::chrono::system_clock::now();
+        const std::time_t t = std::time(nullptr);
 
-    LogDebug("NTP synchronized. Current local time is now %s.", std::asctime(std::localtime(&t)));
-    this->time_is_set = is_set;
+        LogDebug("NTP synchronized. Current local time is now %s.", std::asctime(std::localtime(&t)));
+        this->time_is_set = is_set;
+    }
 }
 
 }

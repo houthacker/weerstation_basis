@@ -9,7 +9,7 @@
 #include "../../src/WeermetenSecrets.h"
 namespace weermeten {
 
-MqttClient::MqttClient(PubSubClient& client, const LastWillTestament lwt) : client(client), lwt(lwt)
+MqttClient::MqttClient(PubSubClient&& client, const LastWillTestament lwt) : client(std::move(client)), lwt(lwt)
 {
     this->client.setServer(WM_MQTT_BROKER, WM_MQTT_PORT);
 

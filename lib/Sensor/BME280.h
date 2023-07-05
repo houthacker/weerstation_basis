@@ -17,6 +17,12 @@ struct SensorMeta {
     const char* availability_topic;
 };
 
+/**
+ * @brief MQTT-managed BME280 sensor.
+ * 
+ * @since 0.0.1
+ * @author houthacker 
+ */
 class BME280 {
     private:
         Adafruit_BME280 bme;
